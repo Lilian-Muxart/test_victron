@@ -3,8 +3,8 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers import selector
 from homeassistant.core import HomeAssistant
-from homeassistant.components.device_registry import async_get_registry as async_get_device_registry
-from homeassistant.components.entity_registry import async_get_registry as async_get_entity_registry
+from homeassistant.helpers.device_registry import async_get_registry as async_get_device_registry
+from homeassistant.helpers.entity_registry import async_get_registry as async_get_entity_registry
 from . import _get_vrm_broker_url  # Importation correcte depuis __init__.py
 from .const import DOMAIN
 import homeassistant.helpers.config_validation as cv
@@ -22,6 +22,7 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.room = None
         self.email = None
         self.password = None
+        self.device_user_name = None  # Nouveau champ pour le nom de l'appareil
 
     async def async_step_user(self, user_input=None):
         """Handle the user input in the configuration flow."""
@@ -29,7 +30,8 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_show_form(step_id="user", data_schema=self._get_data_schema())
 
         # Enregistrer les informations d'entrée de l'utilisateur
-        self.device_name = user_input[CONF_NAME]
+        self.device_user_name = user_input["device_name"]  # Le nom de l'appareil
+        self.device_name = user_input[CONF_NAME]  # Le nom de la personne (peut-être un label)
         self.id_site = user_input[CONF_ID]
         self.room = user_input.get("room")
         self.email = user_input[CONF_EMAIL]
@@ -42,7 +44,7 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Créer l'entrée de configuration
         config_entry = await self.async_create_entry(
-            title=self.device_name,
+            title=self.device_user_name,  # Utiliser le nom de l'appareil donné par l'utilisateur
             data={
                 CONF_NAME: self.device_name,
                 CONF_ID: self.id_site,
@@ -54,7 +56,7 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         # Créer un appareil et l'associer à une pièce
-        await self._create_device_in_home_assistant(config_entry, self.room)
+        await self._create_device_in_home_assistant(config_entry, self.room, self.device_user_name)
 
         return config_entry
 
@@ -74,8 +76,9 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Retourner un schéma avec les pièces récupérées
         return {
-            vol.Required(CONF_NAME): str,
-            vol.Required(CONF_ID): str,
+            vol.Required("device_name"): str,  # Nom de l'appareil
+            vol.Required(CONF_NAME): str,      # Nom du dispositif ou étiquette
+            vol.Required(CONF_ID): str,        # ID de l'appareil
             vol.Required("room"): selector.selector(
                 {
                     "select": {
@@ -83,25 +86,30 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                 }
             ),
-            vol.Required(CONF_EMAIL): str,
-            vol.Required(CONF_PASSWORD): str,
+            vol.Required(CONF_EMAIL): str,     # Email
+            vol.Required(CONF_PASSWORD): str,  # Mot de passe
         }
 
-    async def _create_device_in_home_assistant(self, config_entry, room):
+    async def _create_device_in_home_assistant(self, config_entry, room, device_user_name):
         """Créer un appareil dans Home Assistant et l'associer à la pièce choisie."""
 
         # Obtenir les registres des entités et des appareils
         device_registry = await async_get_device_registry(self.hass)
         entity_registry = await async_get_entity_registry(self.hass)
 
-        # Créer un appareil dans le registre des appareils
+        # Créer un appareil dans le registre des appareils avec les informations nécessaires
+        device_info = {
+            "identifiers": {(DOMAIN, config_entry.entry_id)},  # Identifiant unique pour cet appareil
+            "name": device_user_name,  # Utiliser le nom de l'appareil donné par l'utilisateur
+            "manufacturer": "Victron",
+            "model": "Victron Device",
+            "sw_version": "1.0",  # Exemple de version
+            "suggested_area": room,  # La pièce où l'appareil est situé
+        }
+
         device = device_registry.async_get_or_create(
             config_entry_id=config_entry.entry_id,
-            name=config_entry.title,
-            identifiers={(DOMAIN, config_entry.entry_id)},
-            manufacturer="Victron",
-            model="Victron Device",
-            sw_version="1.0",  # Exemple de version de l'appareil
+            **device_info
         )
 
         # Créer une entité et l'associer à l'appareil
@@ -110,15 +118,8 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "sensor",  # Type d'entité, ici un capteur
             DOMAIN,
             config_entry.entry_id,
-            name=f"{config_entry.title} Sensor",
+            name=f"{device_user_name} Sensor",  # Utiliser le nom donné par l'utilisateur
             device_id=device.id,
         )
 
-        # Associer l'entité à la zone (pièce) choisie
-        state = self.hass.states.get(entity_id)
-        if state:
-            await self.hass.services.async_call(
-                "zone", "set_zone", {"entity_id": entity_id, "zone": room}
-            )
-        else:
-            _LOGGER.error(f"L'entité {entity_id} n'a pas été trouvée.")
+        _LOGGER.info(f"Device {device_user_name} créé avec succès et lié à la zone {room}")

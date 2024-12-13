@@ -2,9 +2,11 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import device_registry, entity_registry
-from homeassistant.components.device_automation import DeviceAutomationType
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.device_registry import async_get_registry as async_get_device_registry
+from homeassistant.helpers.entity_registry import async_get_registry as async_get_entity_registry
 from .const import DOMAIN
+from .config_flow import VictronConfigFlow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     mqtt_broker = entry.data["mqtt_broker"]
 
     # Créer un appareil dans Home Assistant
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = await async_get_device_registry(hass)
 
     device = device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
@@ -51,7 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def create_device_entity(hass: HomeAssistant, device, mqtt_broker: str):
     """Créer une entité liée à l'appareil."""
     # Créer une entité représentant l'état de l'appareil
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_registry = await async_get_entity_registry(hass)
 
     # Exemple d'entité : "device_name" + "_status"
     entity = entity_registry.async_get_or_create(
