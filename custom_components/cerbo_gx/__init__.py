@@ -1,10 +1,9 @@
 import logging
+import dataclasses  # Assurez-vous d'importer dataclasses
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-
-from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,10 +48,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     device_data = DeviceData(device_id, device_name, device_area, email, password)
 
     # Sauvegarder les informations dans hass.data pour un accès ultérieur
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
+    if "victron_integration" not in hass.data:
+        hass.data["victron_integration"] = {}
 
-    hass.data[DOMAIN][entry.entry_id] = device_data
+    hass.data["victron_integration"][entry.entry_id] = device_data
 
     _LOGGER.info("Appareil configuré: %s, Zone: %s", device_name, device_area)
 
@@ -66,13 +65,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Supprimer l'entrée de configuration."""
-    if DOMAIN not in hass.data or entry.entry_id not in hass.data[DOMAIN]:
+    if "victron_integration" not in hass.data or entry.entry_id not in hass.data["victron_integration"]:
         return False
 
     _LOGGER.info("Suppression de la configuration pour l'entrée: %s", entry.title)
 
     # Supprimer les données de l'appareil stockées
-    del hass.data[DOMAIN][entry.entry_id]
+    del hass.data["victron_integration"][entry.entry_id]
 
     # Décharger les plateformes associées
     await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
