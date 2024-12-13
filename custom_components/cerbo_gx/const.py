@@ -1,0 +1,1 @@
+DOMAIN = "victron_integration"
