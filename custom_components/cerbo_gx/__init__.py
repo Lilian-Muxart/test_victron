@@ -15,7 +15,7 @@ async def ajouter_appareil(hass: HomeAssistant, device_id: str, device_name: str
     """Ajoute un appareil et l'affecte à une pièce existante."""
 
     # Récupérer le registre des appareils
-    device_registry = dr.async_get(hass)
+    entity_registry = dr.async_get(hass)
 
     # Vérifier si la pièce existe déjà parmi les zones définies
     area = None
@@ -29,7 +29,7 @@ async def ajouter_appareil(hass: HomeAssistant, device_id: str, device_name: str
         return
 
     # Créer l'appareil dans le device registry
-    device_registry.async_get_or_create(
+    entity_registry.async_get_or_create(
         identifiers={(device_id, device_name)},
         name=device_name,
         manufacturer="Unknown",  # À remplacer par le fabricant si nécessaire
@@ -39,5 +39,5 @@ async def ajouter_appareil(hass: HomeAssistant, device_id: str, device_name: str
     )
 
     # Assigner l'appareil à la pièce
-    device_registry.async_update_device(device_id, area_id=area.entity_id)
+    entity_registry.async_update_device(device_id, area_id=area.entity_id)
     _LOGGER.info(f"Appareil '{device_name}' ajouté à la pièce '{area_name}'.")
