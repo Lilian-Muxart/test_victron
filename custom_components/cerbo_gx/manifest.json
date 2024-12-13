@@ -1,11 +1,9 @@
 {
-  "domain": "victron",
+  "domain": "victron_integration",
   "name": "Victron Integration",
-  "version": "1.0.0",
-  "documentation": "https://example.com",  
+  "documentation": "https://github.com/votre_utilisateur/victron_integration",
   "dependencies": [],
-  "codeowners": ["@votre_nom"],  
-  "requirements": [],
+  "codeowners": ["@votre_utilisateur"],
   "config_flow": true,
-  "iot_class": "local_polling"
+  "version": "1.0.0" 
 }
