@@ -2,8 +2,8 @@ import logging
 from homeassistant import config_entries
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers import selector
+from . import _get_vrm_broker_url  # Importer la fonction depuis __init__.py
 from .const import DOMAIN
-from . import _get_vrm_broker_url  # Importer la fonction que nous allons définir ci-dessous
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.password = user_input[CONF_PASSWORD]
 
         # Connexion au serveur MQTT
-        broker_url = self._get_vrm_broker_url(self.id_site)
+        broker_url = _get_vrm_broker_url(self.id_site)  # Utiliser directement la fonction du même module
         _LOGGER.info(f"Connecting to MQTT broker: {broker_url}")
         # Connectez-vous au broker MQTT ici
 
@@ -63,11 +63,3 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_EMAIL): str,
             vol.Required(CONF_PASSWORD): str,
         }
-
-    def _get_vrm_broker_url(self, id_site):
-        """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
-        sum = 0
-        for character in id_site.lower().strip():
-            sum += ord(character)
-        broker_index = sum % 128
-        return f"mqtt{broker_index}.victronenergy.com"
