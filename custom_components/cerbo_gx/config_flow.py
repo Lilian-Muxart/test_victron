@@ -3,7 +3,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers import selector
 from homeassistant.core import HomeAssistant
-from homeassistant.components.device_registry import async_get_registry
+from homeassistant.components.device_registry import async_get_registry as async_get_device_registry
 from homeassistant.components.entity_registry import async_get_registry as async_get_entity_registry
 from . import _get_vrm_broker_url  # Importation correcte depuis __init__.py
 from .const import DOMAIN
@@ -91,18 +91,17 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Créer un appareil dans Home Assistant et l'associer à la pièce choisie."""
 
         # Obtenir les registres des entités et des appareils
-        device_registry = await async_get_registry(self.hass)
+        device_registry = await async_get_device_registry(self.hass)
         entity_registry = await async_get_entity_registry(self.hass)
 
         # Créer un appareil dans le registre des appareils
         device = device_registry.async_get_or_create(
             config_entry_id=config_entry.entry_id,
             name=config_entry.title,
-            identifiers={(DOMAIN, config_entry.entry_id)},  # Identifiant unique de l'appareil
+            identifiers={(DOMAIN, config_entry.entry_id)},
             manufacturer="Victron",
             model="Victron Device",
-            sw_version="1.0",  # Version de l'appareil
-            suggested_area=room,  # Associer directement l'appareil à la pièce
+            sw_version="1.0",  # Exemple de version de l'appareil
         )
 
         # Créer une entité et l'associer à l'appareil
@@ -115,5 +114,11 @@ class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id=device.id,
         )
 
-        # L'entité est automatiquement liée à l'appareil et à la zone (pièce)
-        _LOGGER.info(f"Created device {device.name} in room {room} with entity {entity.name}")
+        # Associer l'entité à la zone (pièce) choisie
+        state = self.hass.states.get(entity_id)
+        if state:
+            await self.hass.services.async_call(
+                "zone", "set_zone", {"entity_id": entity_id, "zone": room}
+            )
+        else:
+            _LOGGER.error(f"L'entité {entity_id} n'a pas été trouvée.")
