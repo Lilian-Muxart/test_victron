@@ -1,1 +1,1 @@
-DOMAIN = "victron_integration"
+DOMAIN = "victron"
