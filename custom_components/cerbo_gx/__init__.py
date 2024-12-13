@@ -1,43 +1,80 @@
 import logging
-from homeassistant.helpers import device_registry as dr
-from homeassistant.core import HomeAssistant
+from typing import Final
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity import Entity
-from homeassistant.components import zone
+from homeassistant.core import HomeAssistant
+
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup(hass: HomeAssistant, config: dict):
-    """Set up the Appareil Integration."""
-    _LOGGER.info("L'intégration Appareil est configurée.")
+# Configuration version
+CONFIG_VERSION = 1
 
-async def ajouter_appareil(hass: HomeAssistant, device_id: str, device_name: str, area_name: str):
-    """Ajoute un appareil et l'affecte à une pièce existante."""
+# Plateformes que l'intégration supporte
+_PLATFORMS = {"sensor", "switch", "light"}  # Exemple de plateformes à intégrer
 
-    # Récupérer le registre des appareils
-    entity_registry = dr.async_get(hass)
+# Constantes de configuration
+CONF_DEVICE_ID: Final = "device_id"
+CONF_DEVICE_NAME: Final = "device_name"
+CONF_DEVICE_AREA: Final = "device_area"
+CONF_EMAIL: Final = "email"
+CONF_PASSWORD: Final = "password"
 
-    # Vérifier si la pièce existe déjà parmi les zones définies
-    area = None
-    for zone_entity in hass.states.async_all('zone'):
-        if zone_entity.name == area_name:
-            area = zone_entity
-            break
+# Structure de données pour les appareils
+@dataclasses.dataclass
+class DeviceData:
+    device_id: str
+    name: str
+    area: str
+    email: str
+    password: str
 
-    if not area:
-        _LOGGER.error(f"La pièce '{area_name}' n'existe pas.")
-        return
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Configurer l'intégration à partir de l'entrée de configuration."""
+    if entry.version != CONFIG_VERSION:
+        _LOGGER.warning("Migration nécessaire pour la version de configuration.")
+        return False
 
-    # Créer l'appareil dans le device registry
-    entity_registry.async_get_or_create(
-        identifiers={(device_id, device_name)},
-        name=device_name,
-        manufacturer="Unknown",  # À remplacer par le fabricant si nécessaire
-        model="Unknown",  # À remplacer par le modèle si nécessaire
-        sw_version="1.0",  # À remplacer par la version du firmware si nécessaire
-        suggested_area=area_name  # L'assignation de la pièce
-    )
+    _LOGGER.info("Configuration de l'entrée: %s", entry.title)
 
-    # Assigner l'appareil à la pièce
-    entity_registry.async_update_device(device_id, area_id=area.entity_id)
-    _LOGGER.info(f"Appareil '{device_name}' ajouté à la pièce '{area_name}'.")
+    # Extraire les informations de l'appareil
+    device_id = entry.data[CONF_DEVICE_ID]
+    device_name = entry.data[CONF_DEVICE_NAME]
+    device_area = entry.data[CONF_DEVICE_AREA]
+    email = entry.data[CONF_EMAIL]
+    password = entry.data[CONF_PASSWORD]
+
+    # Créer un objet DeviceData
+    device_data = DeviceData(device_id, device_name, device_area, email, password)
+
+    # Sauvegarder les informations dans hass.data pour un accès ultérieur
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+
+    hass.data[DOMAIN][entry.entry_id] = device_data
+
+    _LOGGER.info("Appareil configuré: %s, Zone: %s", device_name, device_area)
+
+    # Ajouter les plateformes comme des services de Home Assistant
+    await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
+
+    # Eventuellement, effectuer des actions supplémentaires pour configurer l'appareil
+    # Par exemple, se connecter à une API externe pour initialiser l'appareil
+
+    return True
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Supprimer l'entrée de configuration."""
+    if DOMAIN not in hass.data or entry.entry_id not in hass.data[DOMAIN]:
+        return False
+
+    _LOGGER.info("Suppression de la configuration pour l'entrée: %s", entry.title)
+
+    # Supprimer les données de l'appareil stockées
+    del hass.data[DOMAIN][entry.entry_id]
+
+    # Décharger les plateformes associées
+    await hass.config_entries.async_unload_platforms(entry, _PLATFORMS)
+
+    return True
